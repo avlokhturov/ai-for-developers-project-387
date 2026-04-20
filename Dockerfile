@@ -22,6 +22,8 @@ RUN apk add --no-cache ca-certificates sqlite-libs
 
 WORKDIR /app
 
+RUN mkdir -p /data
+
 COPY --from=backend-builder /api-server /app/api-server
 COPY --from=frontend-builder /app/frontend/dist /app/dist
 
