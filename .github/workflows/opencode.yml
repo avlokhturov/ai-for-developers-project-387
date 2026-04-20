@@ -6,13 +6,12 @@ on:
   pull_request_review_comment:
     types: [created]
 
+env:
+  TRIGGER_COMMAND: ${{ vars.TRIGGER_COMMAND || '/opencode' }}
+  ALIASES: ${{ vars.ALIASES || '/oc,/ai,/bot' }}
+
 jobs:
   opencode:
-    if: |
-      contains(github.event.comment.body, ' /oc') ||
-      startsWith(github.event.comment.body, '/oc') ||
-      contains(github.event.comment.body, ' /opencode') ||
-      startsWith(github.event.comment.body, '/opencode')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -25,7 +24,37 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check trigger command
+        id: check_trigger
+        run: |
+          BODY="${{ github.event.comment.body }}"
+          COMMAND="${{ env.TRIGGER_COMMAND }}"
+          ALIASES="${{ env.ALIASES }}"
+          
+          echo "Checking body: $BODY"
+          echo "Trigger command: $COMMAND"
+          echo "Aliases: $ALIASES"
+          
+          # Check main command
+          if [[ " $BODY" == *" $COMMAND"* ]] || [[ "$BODY" == "$COMMAND"* ]]; then
+            echo "triggered=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Check aliases
+          IFS=',' read -ra ALIAS_ARRAY <<< "$ALIASES"
+          for alias in "${ALIAS_ARRAY[@]}"; do
+            if [[ " $BODY" == *" $alias"* ]] || [[ "$BODY" == "$alias"* ]]; then
+              echo "triggered=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          done
+          
+          echo "triggered=false" >> $GITHUB_OUTPUT
+          echo "No trigger command found"
+
       - name: Run opencode
+        if: steps.check_trigger.outputs.triggered == 'true'
         uses: anomalyco/opencode/github@latest
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
