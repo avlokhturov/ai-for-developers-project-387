@@ -56,6 +56,13 @@ func main() {
 		})
 	})
 
+	staticDir := "/app/dist"
+	fs := http.FileServer(http.Dir(staticDir))
+	r.Handle("/assets/*", fs)
+	r.NotFound(func(w http.ResponseWriter, req *http.Request) {
+		http.ServeFile(w, req, staticDir+"/index.html")
+	})
+
 	log.Printf("Server starting on :%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, r))
 }
