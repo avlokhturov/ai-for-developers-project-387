@@ -1,0 +1,12 @@
+node_modules/
+generated/
+dist/
+.next/
+
+.env*.local
+*.local
+
+package-lock.json
+
+*.exe
+*.exe~
