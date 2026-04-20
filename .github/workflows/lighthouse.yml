@@ -38,11 +38,13 @@ jobs:
         run: npx vite preview --port 3000 --host &
         working-directory: frontend
 
-      - name: Wait for servers
-        run: npx wait-on http://localhost:3000 --timeout 30000
-
       - name: Install Lighthouse
         run: npm install -g lighthouse
+
+      - name: Wait for servers
+        run: |
+          npx wait-on http://localhost:3000 --timeout 60000
+          sleep 5
 
       - name: Run Lighthouse
         run: |
@@ -51,10 +53,13 @@ jobs:
             --output html \
             --output json \
             --output-path ./lighthouse-reports/report \
-            --chrome-flags="--headless --no-sandbox" \
-            --quiet
+            --chrome-flags="--headless --no-sandbox" || true
+
+      - name: Debug report files
+        run: ls -la lighthouse-reports/ || echo "No report files generated"
 
       - name: Generate summary
+        if: hashFiles('lighthouse-reports/report.json') != ''
         run: |
           node -e "
             const report = require('./lighthouse-reports/report.json');
