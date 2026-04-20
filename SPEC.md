@@ -2,13 +2,14 @@
 
 ## Overview
 
-REST API + Next.js frontend for meeting booking. Two roles: calendar owner (single预设profile) and guests (no registration).
+REST API + React SPA frontend for meeting booking. Two roles: calendar owner (single preset profile) and guests (no registration).
 
 ## Stack
 
-- **Frontend**: Next.js (App Router), TypeScript
-- **Backend**: Go, Standard REST API
-- **Database**: SQLite
+- **Frontend**: React 18 + Vite 5, TypeScript, TanStack Query, Tailwind CSS, React Router 6
+- **Backend**: Go 1.22, net/http, chi router, go-sqlite3
+- **Database**: SQLite3
+- **API Spec**: TypeSpec → OpenAPI 3
 
 ---
 
@@ -151,9 +152,10 @@ Response: List of all bookings (admin)
 
 | Route | Description |
 |-------|-------------|
-| `/booking` | Cards with event types (name, description, duration) |
-| `/booking/[eventTypeId]` | Calendar view (switchable: week/month/list), slot selection |
-| `/booking/[eventTypeId]/confirm` | Booking confirmation form (name, email) |
+| `/` | Home page with event type cards |
+| `/booking/:eventTypeId` | Date selection and slot picker |
+| `/booking/:eventTypeId/confirm` | Booking confirmation form (name, email) |
+| `/booking/success` | Booking success confirmation |
 
 ### Admin
 
@@ -162,15 +164,15 @@ Response: List of all bookings (admin)
 | `/admin` | Dashboard: upcoming bookings list |
 | `/admin/events` | Event types list with CRUD actions |
 | `/admin/events/new` | Create event type form |
-| `/admin/events/[id]/edit` | Edit event type form |
+| `/admin/events/:id/edit` | Edit event type form |
 
 ---
 
 ## Acceptance Criteria
 
-1. **Slot locking**: Two bookings cannot occupy same time slot (哪怕不同 event types)
+1. **Slot locking**: Two bookings cannot occupy same time slot (even different event types)
 2. **14-day window**: Guests can only book within 14 days from today
-3. **30-min slots**: All slots are exactly 30 minutes
+3. **30-min slots**: All slots are exactly 30 minutes (or event type duration)
 4. **No auth for guests**: Guests book without registration
 5. **Admin at /admin**: Calendar owner uses `/admin` routes
 6. **Calendar views**: Week, Month, List views — user can switch between them
@@ -182,18 +184,69 @@ Response: List of all bookings (admin)
 
 ```
 /
-├── frontend/              # Next.js app
-│   ├── app/
-│   │   ├── booking/
-│   │   │   └── [eventTypeId]/
-│   │   ├── admin/
-│   │   └── api/           # API routes (proxy to Go backend)
-│   └── components/
-├── backend/               # Go REST API
+├── frontend/                  # React + Vite SPA
+│   ├── src/
+│   │   ├── main.tsx          # Entry point with QueryClientProvider
+│   │   ├── App.tsx           # Routes
+│   │   ├── lib/
+│   │   │   ├── api.ts        # API client
+│   │   │   ├── types.ts      # TypeScript interfaces
+│   │   │   ├── utils.ts     # Utilities (cn)
+│   │   │   └── queryClient.ts # TanStack Query client
+│   │   ├── hooks/            # React Query hooks
+│   │   │   ├── useEventTypes.ts
+│   │   │   ├── useBookings.ts
+│   │   │   └── useSlots.ts
+│   │   ├── components/
+│   │   │   ├── Layout.tsx
+│   │   │   ├── EventTypeForm.tsx
+│   │   │   ├── EventTypesList.tsx
+│   │   │   └── ui/           # Reusable UI components
+│   │   └── pages/
+│   │       ├── HomePage.tsx
+│   │       ├── BookingCalendar.tsx
+│   │       ├── ConfirmBooking.tsx
+│   │       ├── BookingSuccess.tsx
+│   │       ├── AdminDashboard.tsx
+│   │       ├── AdminEventsPage.tsx
+│   │       ├── NewEventTypePage.tsx
+│   │       └── EditEventTypePage.tsx
+│   └── package.json
+│
+├── backend/                   # Go REST API
+│   ├── main.go              # Entry point, chi router setup
+│   ├── internal/
+│   │   ├── repository/       # Repository interface + SQLite implementation
+│   │   │   ├── interfaces.go
+│   │   │   └── sqlite.go
+│   │   ├── middleware/       # CORS, Logger, Recovery
+│   │   │   └── middleware.go
+│   │   └── models/          # Data models
+│   │       └── models.go
 │   ├── handlers/
-│   ├── models/
-│   ├── repository/
-│   └── main.go
+│   │   └── handlers.go      # HTTP handlers
+│   ├── go.mod
+│   └── go.sum
+├── generated/                 # Generated API specs
+├── docker-compose.yml
 ├── SPEC.md
 └── plan.md
 ```
+
+---
+
+## Architecture Notes
+
+### Backend
+
+- **Repository pattern**: `Repository` interface in `internal/repository/interfaces.go`, SQLite implementation in `sqlite.go`
+- **Router**: chi v5 for clean routing with path parameters
+- **Middleware**: CORS, logging, panic recovery in `internal/middleware/`
+- **Handlers**: Thin layer that extracts request data and calls repository methods
+
+### Frontend
+
+- **TanStack Query**: All data fetching via `useQuery`/`useMutation` hooks in `hooks/`
+- **Custom hooks**: `useEventTypes`, `useBookings`, `useSlots` encapsulate all API interactions
+- **API client**: Simple fetch wrapper in `lib/api.ts`
+- **Components**: Stateless, receive data via props from hooks

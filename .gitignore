@@ -1,3 +1,12 @@
 node_modules/
-package-lock.json
 generated/
+dist/
+.next/
+
+.env*.local
+*.local
+
+package-lock.json
+
+*.exe
+*.exe~
